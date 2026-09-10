@@ -1,0 +1,61 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+
+# Environment variables / secrets
+
+.env
+.env.*
+!.env.example
+
+# SQLite / local databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# FastAPI / Python tooling
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / React
+
+node_modules/
+dist/
+build/
+
+# Vite
+
+.vite/
+
+# IDE / editor
+
+.vscode/
+.idea/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log
+
+# Temporary files
+
+*.tmp
+*.swp

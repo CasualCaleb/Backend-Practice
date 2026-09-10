@@ -1,0 +1,6 @@
+uvicorn
+fastapi
+itsdangerous
+dotenv
+authlib
+httpx
