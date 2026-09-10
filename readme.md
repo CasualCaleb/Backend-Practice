@@ -1,1 +1,4 @@
-Backend practice sandbox for learning APIs, authentication, databases, and server-side development through hands-on experimentation.
+\## Backend Practice
+
+This is just a place for me to practice my skills in backend development
+
