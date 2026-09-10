@@ -13,6 +13,7 @@ async def read_users_me(request: Request):
     user_id = request.session["user_id"]
     return get_user_by_id(user_id)
 
+# Change the current user's username
 @router.patch("/me/username", name="username")
 async def change_username(data: UsernameUpdate, request: Request):
     if "user_id" not in request.session:
@@ -23,6 +24,7 @@ async def change_username(data: UsernameUpdate, request: Request):
         data.username
     )
 
+# Delete the current user
 @router.delete("/me", name="delete_me")
 async def delete_me(request: Request):
     if "user_id" not in request.session:
