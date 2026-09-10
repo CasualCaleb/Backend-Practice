@@ -3,10 +3,12 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 from routes import users, auth, admin
 from starlette.middleware.sessions import SessionMiddleware
+from db import init_db
 
 load_dotenv()
 
 app = FastAPI()
+init_db()
 
 app.add_middleware(
     SessionMiddleware,

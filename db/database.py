@@ -3,24 +3,38 @@ import sqlite3
 
 db_url = "db/users.db"
 
+# Create table if missing
+def init_db():
+    with sqlite3.connect(db_url) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users(
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                google_id TEXT NOT NULL UNIQUE,
+                username TEXT,
+                email TEXT NOT NULL UNIQUE,
+                role TEXT NOT NULL DEFAULT 'user'
+            )
+        """)
+
 def get_users() -> list[User]:
-    conn = sqlite3.connect(db_url)
-    cursor = conn.cursor()
+    with sqlite3.connect(db_url) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM users")
-    rows = cursor.fetchall()
-    conn.close()
+        cursor.execute("SELECT * FROM users")
+        rows = cursor.fetchall()
+        conn.close()
 
-    users = [
-        User(
-            id=row[0],
-            google_id=row[1],
-            username=row[2],
-            email=row[3],
-            role=row[4]
-        )
-        for row in rows
-    ]
+        users = [
+            User(
+                id=row[0],
+                google_id=row[1],
+                username=row[2],
+                email=row[3],
+                role=row[4]
+            )
+            for row in rows
+        ]
     return users
 
 def get_user_by_google_id(google_id: str) -> User:

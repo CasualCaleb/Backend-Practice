@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from db.database import get_user_by_id
+from db import get_user_by_id
 
 router = APIRouter(prefix="/api/users")
 

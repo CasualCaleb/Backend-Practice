@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from models.user import User
-from db.database import get_user_by_google_id, add_user
+from db import get_user_by_google_id, add_user
 
 
 router = APIRouter(prefix="/api/auth")

@@ -1,8 +1,6 @@
-from ctypes.wintypes import tagRECT
-
 from fastapi import APIRouter, HTTPException, Depends, Request
 from models.user import User
-from db.database import get_user_by_id, get_users, delete_user
+from db import get_user_by_id, get_users, delete_user
 
 # CHECK IF USER IS ADMIN
 def require_admin(request: Request):
