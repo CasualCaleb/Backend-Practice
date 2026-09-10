@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+
 from models.user import User
 from db import get_user_by_id, get_users, delete_user
 
@@ -48,10 +49,15 @@ async def admin_get_user_by_id(user_id: int):
     return user
 
 # Remove user by id
-@router.get("/users/remove/{user_id}")
-async def admin_remove_user(user_id: int):
+@router.delete("/users/{user_id}")
+async def admin_remove_user(user_id: int, request: Request):
     user = get_user_by_id(user_id)
     if user is None:
         return {"message": "User not found"}
     delete_user(user_id)
+
+    # Handle if user deletes themselves
+    if request.session["user_id"] == user_id:
+        request.session.clear()
+
     return {"message": "User removed"}

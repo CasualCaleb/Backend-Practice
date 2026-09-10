@@ -23,7 +23,6 @@ def get_users() -> list[User]:
 
         cursor.execute("SELECT * FROM users")
         rows = cursor.fetchall()
-        conn.close()
 
         users = [
             User(
