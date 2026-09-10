@@ -14,7 +14,7 @@ async def read_users_me(request: Request):
     return get_user_by_id(user_id)
 
 @router.patch("/me/username", name="username")
-async def read_users_username(data: UsernameUpdate, request: Request):
+async def change_username(data: UsernameUpdate, request: Request):
     if "user_id" not in request.session:
         raise HTTPException(status_code=401, detail="You have not logged in")
 
