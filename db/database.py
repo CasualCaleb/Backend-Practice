@@ -1,7 +1,8 @@
-from models.user import User
+from models import User
 import sqlite3
+from pathlib import Path
 
-db_url = "db/users.db"
+db_url = Path(__file__).resolve().parent.parent / "db" / "users.db"
 
 # Create table if missing
 def init_db():
@@ -79,6 +80,18 @@ def get_user_by_id(user_id: int) -> User:
         email=row[3],
         role=row[4]
     )
+
+def update_username(user_id: int, username: str) -> bool:
+    with sqlite3.connect(db_url) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE users
+            SET username = ?
+            WHERE ID = ?;
+        """, (username, user_id))
+
+        return cursor.rowcount > 0
 
 def add_user(user: User):
     with sqlite3.connect(db_url) as conn:
