@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
-from db import get_user_by_id,update_username
+from db import get_user_by_id, update_username, delete_user
 from models import UsernameUpdate
 
 router = APIRouter(prefix="/api/users")
@@ -22,3 +22,16 @@ async def read_users_username(data: UsernameUpdate, request: Request):
         request.session["user_id"],
         data.username
     )
+
+@router.delete("/me", name="delete_me")
+async def delete_me(request: Request):
+    if "user_id" not in request.session:
+        raise HTTPException(status_code=401, detail="You have not logged in")
+    user_id = request.session["user_id"]
+
+    response = delete_user(user_id)
+
+    if response:
+        request.session.clear()
+
+    return response
