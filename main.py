@@ -1,21 +1,22 @@
-import os
 from fastapi import FastAPI
-from dotenv import load_dotenv
 from routes import users, auth, admin
+from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
 from db import init_db
+from config import SESSION_SECRET
 
-# Load .env
-load_dotenv()
+# Initialize the database
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await init_db()
+    yield
 
-# Initiate FastAPI and SQLite database
-app = FastAPI()
-init_db()
+app = FastAPI(lifespan=lifespan)
 
 # Add middleware
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET"),
+    secret_key=SESSION_SECRET,
 )
 
 # Setup routes
