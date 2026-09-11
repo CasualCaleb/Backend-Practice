@@ -1,8 +1,6 @@
 import os
-from urllib import request
-
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from models.user import User
@@ -32,15 +30,26 @@ async def login(request: Request):
 @router.post("/logout")
 async def logout(request: Request):
     if request.session.get("user_id") is None:
-        return {"message": "You are not logged in"}
-
-    user = get_user_by_id(request.session["user_id"])
-    if user is not None:
-        log_activity(
-            user.id,
-            "logout",
-            f"{user.username} logged out"
+        raise HTTPException(
+            status_code=401,
+            detail="You have not logged in"
         )
+
+    user = await get_user_by_id(request.session["user_id"])
+
+    # Handle if existing_user is None or if id is None
+    if user is None or user.id is None:
+        request.session.clear()
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid session"
+        )
+
+    await log_activity(
+        user.id,
+        "logout",
+        f"{user.username} logged out"
+    )
 
     request.session.clear()
     return {"message": "You have been logged out"}
@@ -50,20 +59,31 @@ async def auth_callback(request: Request):
     token = await oauth.google.authorize_access_token(request)
     userinfo = token['userinfo']
 
-    user = User(
+    user_data = User(
         google_id= userinfo["sub"],
         username= userinfo["name"],
         email= userinfo["email"],
     )
 
-    existing_user = get_user_by_google_id(user.google_id)
-    if existing_user is None:
-        add_user(user)
-        existing_user = get_user_by_google_id(user.google_id)
+    user = await get_user_by_google_id(user_data.google_id)
+    if user is None:
+        await add_user(user_data)
+        user = await get_user_by_google_id(user_data.google_id)
+
+    # Handle if existing_user is None or if id is None
+    if user is None or user.id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User record is invalid"
+        )
 
     # Save user to session and log
-    request.session["user_id"] = existing_user.id
-    log_activity(existing_user.id, "login", f"{existing_user.username} logged in")
+    request.session["user_id"] = user.id
+    await log_activity(
+        user.id,
+        "login",
+        f"{user.username} logged in"
+    )
 
     return RedirectResponse(url=request.url_for("me"))
 

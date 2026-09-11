@@ -8,23 +8,37 @@ router = APIRouter(prefix="/api/users")
 @router.get("/me", name="me")
 async def read_users_me(request: Request):
     if "user_id" not in request.session:
-        return {"message": "You have not logged in"}
+        raise HTTPException(
+            status_code=401,
+            detail="You have not logged in"
+        )
 
-    user_id = request.session["user_id"]
-    return get_user_by_id(user_id)
+    user = await get_user_by_id(request.session["user_id"])
+
+    if user is None:
+        request.session.clear()
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Session"
+        )
+
+    return user
 
 # Change the current user's username
 @router.patch("/me/username", name="username")
 async def change_username(data: UsernameUpdate, request: Request):
     if "user_id" not in request.session:
-        raise HTTPException(status_code=401, detail="You have not logged in")
+        raise HTTPException(
+            status_code=401,
+            detail="You have not logged in"
+        )
 
-    updated = update_username(
+    updated = await update_username(
         request.session["user_id"],
         data.username
     )
     if updated:
-        log_activity(
+        await log_activity(
             request.session["user_id"],
             "username",
             f"Changed username to {data.username}"
@@ -36,12 +50,15 @@ async def change_username(data: UsernameUpdate, request: Request):
 @router.delete("/me", name="delete_me")
 async def delete_me(request: Request):
     if "user_id" not in request.session:
-        raise HTTPException(status_code=401, detail="You have not logged in")
+        raise HTTPException(
+            status_code=401,
+            detail="You have not logged in"
+        )
     user_id = request.session["user_id"]
 
-    response = delete_user(user_id)
+    deleted  = await delete_user(user_id)
 
-    if response:
+    if deleted :
         request.session.clear()
 
-    return response
+    return deleted

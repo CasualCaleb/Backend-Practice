@@ -4,3 +4,6 @@ itsdangerous
 dotenv
 authlib
 httpx
+aiosqlite
+pytest
+pytest-asyncio

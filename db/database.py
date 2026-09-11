@@ -1,25 +1,24 @@
 from models import User
-import sqlite3
+import aiosqlite
 from pathlib import Path
 
 db_url = Path(__file__).resolve().parent.parent / "db" / "database.db"
 
 # Create tables if missing
-def init_db():
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
+async def init_db() -> None:
+    async with aiosqlite.connect(db_url) as conn:
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS users(
-                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 google_id TEXT NOT NULL UNIQUE,
                 username TEXT,
                 email TEXT NOT NULL UNIQUE,
                 role TEXT NOT NULL DEFAULT 'user'
             )
         """)
-        cursor.execute("""
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS activity_log(
-                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 action TEXT NOT NULL,
                 details TEXT NOT NULL,
@@ -27,20 +26,24 @@ def init_db():
             )
         """)
 
-def log_activity(user_id: int, action: str, details: str):
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        INSERT INTO activity_log( user_id, action, details)
+        await conn.commit()
+
+async def log_activity(user_id: int, action: str, details: str) -> None:
+    async with aiosqlite.connect(db_url) as conn:
+        await conn.execute("""
+        INSERT INTO activity_log(user_id, action, details)
         VALUES (?, ?, ?)
         """, (user_id, action, details))
 
-def get_users() -> list[User]:
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
+        await conn.commit()
 
-        cursor.execute("SELECT * FROM users")
-        rows = cursor.fetchall()
+async def get_users() -> list[User]:
+    async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
+            SELECT id, google_id, username, email, role
+            FROM users
+        """)
+        rows = await cursor.fetchall()
 
         users = [
             User(
@@ -54,16 +57,15 @@ def get_users() -> list[User]:
         ]
     return users
 
-def get_user_by_google_id(google_id: str) -> User:
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT *
+async def get_user_by_google_id(google_id: str) -> User | None:
+   async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
+            SELECT id, google_id, username, email, role
             FROM users
             WHERE google_id = ?;
         """, (google_id,))
 
-        row = cursor.fetchone()
+        row = await cursor.fetchone()
 
         if row is None:
             return None
@@ -76,45 +78,41 @@ def get_user_by_google_id(google_id: str) -> User:
             role=row[4]
         )
 
-def get_user_by_id(user_id: int) -> User:
-    conn = sqlite3.connect(db_url)
-    cursor = conn.cursor()
+async def get_user_by_id(user_id: int) -> User | None:
+    async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
+            SELECT id, google_id, username, email, role
+            FROM users
+            WHERE id = ?
+        """, (user_id,))
+        row = await cursor.fetchone()
 
-    cursor.execute("""
-        SELECT *
-        FROM users
-        WHERE id = ?
-    """, (user_id,))
-    row = cursor.fetchone()
+        if row is None:
+            return None
 
-    if row is None:
-        return None
+        return User(
+            id=row[0],
+            google_id=row[1],
+            username=row[2],
+            email=row[3],
+            role=row[4]
+        )
 
-    return User(
-        id = row[0],
-        google_id=row[1],
-        username=row[2],
-        email=row[3],
-        role=row[4]
-    )
-
-def update_username(user_id: int, username: str) -> bool:
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-
-        cursor.execute("""
+async def update_username(user_id: int, username: str) -> bool:
+    async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
             UPDATE users
             SET username = ?
-            WHERE ID = ?;
+            WHERE id = ?;
         """, (username, user_id))
+
+        await conn.commit()
 
         return cursor.rowcount > 0
 
-def add_user(user: User):
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-
-        cursor.execute(f"""
+async def add_user(user: User) -> bool:
+    async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
         INSERT INTO users (google_id, username, email, role)
         VALUES (?, ?, ?, ?)
         """, (
@@ -125,11 +123,16 @@ def add_user(user: User):
             )
         )
 
-def delete_user(user_id: int) -> bool:
-    with sqlite3.connect(db_url) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
+        await conn.commit()
+
+        return cursor.rowcount > 0
+
+async def delete_user(user_id: int) -> bool:
+    async with aiosqlite.connect(db_url) as conn:
+        cursor = await conn.execute("""
             DELETE FROM users WHERE id = ?
         """, (user_id,))
+
+        await conn.commit()
 
         return cursor.rowcount > 0

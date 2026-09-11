@@ -1,20 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-
 from models.user import User
 from db import get_user_by_id, get_users, delete_user
 
 # CHECK IF USER IS ADMIN
-def require_admin(request: Request):
+async def require_admin(request: Request):
     if 'user_id' not in request.session:
         raise HTTPException(
             status_code=401,
             detail="You must be logged in"
         )
-    user = get_user_by_id(request.session["user_id"])
+    user = await get_user_by_id(request.session["user_id"])
 
     if user is None:
         raise HTTPException(
-            status_code=401,
+            status_code=404,
             detail="User not found"
         )
 
@@ -35,15 +34,16 @@ router = APIRouter(
 # Get all users
 @router.get("/users", response_model=list[User])
 async def list_users() -> list[User]:
-    return get_users()
+    return await get_users()
 
 # Get user by id
 @router.get("/users/{user_id}", response_model=User)
 async def admin_get_user_by_id(user_id: int):
-    user = get_user_by_id(user_id)
+    user = await get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
-            status_code=404, detail="User not found"
+            status_code=404,
+            detail="User not found"
         )
 
     return user
@@ -51,10 +51,13 @@ async def admin_get_user_by_id(user_id: int):
 # Remove user by id
 @router.delete("/users/{user_id}")
 async def admin_remove_user(user_id: int, request: Request):
-    user = get_user_by_id(user_id)
+    user = await get_user_by_id(user_id)
     if user is None:
-        return {"message": "User not found"}
-    delete_user(user_id)
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+    await delete_user(user_id)
 
     # Handle if user deletes themselves
     if request.session["user_id"] == user_id:
