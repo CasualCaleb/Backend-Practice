@@ -1,10 +1,12 @@
 import os
+from urllib import request
+
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from models.user import User
-from db import get_user_by_google_id, add_user
+from db import get_user_by_google_id, get_user_by_id, add_user, log_activity
 
 
 router = APIRouter(prefix="/api/auth")
@@ -27,10 +29,18 @@ async def login(request: Request):
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(request: Request):
     if request.session.get("user_id") is None:
         return {"message": "You are not logged in"}
+
+    user = get_user_by_id(request.session["user_id"])
+    if user is not None:
+        log_activity(
+            user.id,
+            "logout",
+            f"{user.username} logged out"
+        )
 
     request.session.clear()
     return {"message": "You have been logged out"}
@@ -51,7 +61,9 @@ async def auth_callback(request: Request):
         add_user(user)
         existing_user = get_user_by_google_id(user.google_id)
 
+    # Save user to session and log
     request.session["user_id"] = existing_user.id
+    log_activity(existing_user.id, "login", f"{existing_user.username} logged in")
 
     return RedirectResponse(url=request.url_for("me"))
 

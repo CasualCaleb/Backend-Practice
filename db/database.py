@@ -2,9 +2,9 @@ from models import User
 import sqlite3
 from pathlib import Path
 
-db_url = Path(__file__).resolve().parent.parent / "db" / "users.db"
+db_url = Path(__file__).resolve().parent.parent / "db" / "database.db"
 
-# Create table if missing
+# Create tables if missing
 def init_db():
     with sqlite3.connect(db_url) as conn:
         cursor = conn.cursor()
@@ -17,6 +17,23 @@ def init_db():
                 role TEXT NOT NULL DEFAULT 'user'
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS activity_log(
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                action TEXT NOT NULL,
+                details TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+def log_activity(user_id: int, action: str, details: str):
+    with sqlite3.connect(db_url) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO activity_log( user_id, action, details)
+        VALUES (?, ?, ?)
+        """, (user_id, action, details))
 
 def get_users() -> list[User]:
     with sqlite3.connect(db_url) as conn:
