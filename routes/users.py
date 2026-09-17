@@ -1,64 +1,57 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from db import get_user_by_id, update_username, delete_user, log_activity
-from models import UsernameUpdate
+from models import UsernameUpdate, User
 
-router = APIRouter(prefix="/api/users")
-
-# Get current user info
-@router.get("/me", name="me")
-async def read_users_me(request: Request):
+async def require_user(request: Request) -> User:
     if "user_id" not in request.session:
         raise HTTPException(
             status_code=401,
             detail="You have not logged in"
         )
-
     user = await get_user_by_id(request.session["user_id"])
 
     if user is None:
-        request.session.clear()
         raise HTTPException(
-            status_code=401,
-            detail="Invalid Session"
+            status_code=404,
+            detail="User not found"
         )
 
     return user
 
+router = APIRouter(
+    prefix="/api/users",
+    dependencies=[Depends(require_user)]
+)
+
+# Get current user info
+@router.get("/me", name="me")
+async def read_users_me(
+        user: User = Depends(require_user)
+):
+    return user
+
 # Change the current user's username
 @router.patch("/me/username", name="username")
-async def change_username(data: UsernameUpdate, request: Request):
-    if "user_id" not in request.session:
-        raise HTTPException(
-            status_code=401,
-            detail="You have not logged in"
-        )
-
-    updated = await update_username(
-        request.session["user_id"],
+async def change_username(data: UsernameUpdate, user: User = Depends(require_user)):
+    is_updated = await update_username(
+        user.id,
         data.username
     )
-    if updated:
+    if is_updated:
         await log_activity(
-            request.session["user_id"],
+            user.id,
             "username",
             f"Changed username to {data.username}"
         )
 
-    return updated
+    return is_updated
 
 # Delete the current user
 @router.delete("/me", name="delete_me")
-async def delete_me(request: Request):
-    if "user_id" not in request.session:
-        raise HTTPException(
-            status_code=401,
-            detail="You have not logged in"
-        )
-    user_id = request.session["user_id"]
+async def delete_me(request: Request, user: User = Depends(require_user)):
+    is_deleted  = await delete_user(user.id)
 
-    deleted  = await delete_user(user_id)
-
-    if deleted :
+    if is_deleted :
         request.session.clear()
 
-    return deleted
+    return is_deleted
