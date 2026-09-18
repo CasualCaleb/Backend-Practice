@@ -1,4 +1,3 @@
-import os
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
@@ -35,12 +34,12 @@ async def logout(request: Request):
 
     user = await get_user_by_id(request.session["user_id"])
 
-    # Handle if existing_user is None or if id is None
-    if user is None or user.id is None:
+    # Handle if existing_user is None
+    if user is None:
         request.session.clear()
         raise HTTPException(
-            status_code=500,
-            detail="Invalid session"
+            status_code=404,
+            detail="User not found"
         )
 
     await log_activity(
@@ -72,7 +71,7 @@ async def auth_callback(request: Request):
     if user is None or user.id is None:
         raise HTTPException(
             status_code=401,
-            detail="User record is invalid"
+            detail="Invalid user"
         )
 
     # Save user to session and log

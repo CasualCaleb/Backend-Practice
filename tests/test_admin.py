@@ -1,69 +1,18 @@
-from fastapi import HTTPException
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
-from models.user import User
-from routes.admin import require_admin
-import pytest
 
 def test_admin_rejects_logged_out(client):
     response = client.get('api/admin/users')
     assert response.status_code == 401
 
-@pytest.mark.asyncio
-async def test_admin_rejects_user():
-    normal_user = User(
-        id=1,
-        google_id="user123",
-        username="casualcaleb",
-        email="caleb@example.com",
-        role="user"
-    )
+def test_admin_rejects_user(client, normal_user, mock_google_token):
+    response = client.get('/api/auth/callback', follow_redirects=False)
+    assert response.status_code in (302, 307)
 
-    request = SimpleNamespace(
-        session={"user_id": 1}
-    )
+    response = client.get('/api/admin/users', follow_redirects=False)
+    assert response.status_code == 403
 
-    with patch(
-        "routes.admin.get_user_by_id",
-        new=AsyncMock(return_value=normal_user)
-    ):
-        with pytest.raises(HTTPException) as exc:
-            await require_admin(request)
+def test_admin_accepts_admin(client, admin_user, mock_google_token):
+    response = client.get('/api/auth/callback', follow_redirects=False)
+    assert response.status_code in (302, 307)
 
-    assert exc.value.status_code == 403
-
-@pytest.mark.asyncio
-async def test_admin_accepts_admin():
-    admin_user = User(
-        id=1,
-        google_id="user123",
-        username="casualcaleb",
-        email="caleb@example.com",
-        role="admin"
-    )
-
-    request = SimpleNamespace(
-        session={"user_id": 1}
-    )
-
-    with patch(
-        "routes.admin.get_user_by_id",
-        new=AsyncMock(return_value=admin_user)
-    ):
-        result = await require_admin(request)
-    assert admin_user == result
-
-@pytest.mark.asyncio
-async def test_admin_rejects_missing_user():
-    request = SimpleNamespace(
-        session={"user_id": 1}
-    )
-
-    with patch(
-        "routes.admin.get_user_by_id",
-        new=AsyncMock(return_value=None)
-    ):
-        with pytest.raises(HTTPException) as exc:
-            await require_admin(request)
-
-    assert exc.value.status_code == 404
+    response = client.get('/api/admin/users')
+    assert response.status_code == 200

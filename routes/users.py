@@ -25,9 +25,7 @@ router = APIRouter(
 
 # Get current user info
 @router.get("/me", name="me")
-async def read_users_me(
-        user: User = Depends(require_user)
-):
+async def read_users_me(user: User = Depends(require_user)):
     return user
 
 # Change the current user's username

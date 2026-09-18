@@ -2,11 +2,11 @@ from models import User
 import aiosqlite
 from pathlib import Path
 
-db_url = Path(__file__).resolve().parent.parent / "db" / "database.db"
+DATABASE_PATH = Path(__file__).resolve().parent.parent / "db" / "database.db"
 
 # Create tables if missing
 async def init_db() -> None:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +29,7 @@ async def init_db() -> None:
         await conn.commit()
 
 async def log_activity(user_id: int, action: str, details: str) -> None:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         await conn.execute("""
         INSERT INTO activity_log(user_id, action, details)
         VALUES (?, ?, ?)
@@ -38,7 +38,7 @@ async def log_activity(user_id: int, action: str, details: str) -> None:
         await conn.commit()
 
 async def get_users() -> list[User]:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             SELECT id, google_id, username, email, role
             FROM users
@@ -58,7 +58,7 @@ async def get_users() -> list[User]:
     return users
 
 async def get_user_by_google_id(google_id: str) -> User | None:
-   async with aiosqlite.connect(db_url) as conn:
+   async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             SELECT id, google_id, username, email, role
             FROM users
@@ -79,7 +79,7 @@ async def get_user_by_google_id(google_id: str) -> User | None:
         )
 
 async def get_user_by_id(user_id: int) -> User | None:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             SELECT id, google_id, username, email, role
             FROM users
@@ -99,7 +99,7 @@ async def get_user_by_id(user_id: int) -> User | None:
         )
 
 async def update_username(user_id: int, username: str) -> bool:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             UPDATE users
             SET username = ?
@@ -111,7 +111,7 @@ async def update_username(user_id: int, username: str) -> bool:
         return cursor.rowcount > 0
 
 async def add_user(user: User) -> bool:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
         INSERT INTO users (google_id, username, email, role)
         VALUES (?, ?, ?, ?)
@@ -128,7 +128,7 @@ async def add_user(user: User) -> bool:
         return cursor.rowcount > 0
 
 async def delete_user(user_id: int) -> bool:
-    async with aiosqlite.connect(db_url) as conn:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             DELETE FROM users WHERE id = ?
         """, (user_id,))
