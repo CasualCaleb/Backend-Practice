@@ -10,7 +10,7 @@ class User(BaseModel):
     google_id: str
     username: str
     email: EmailStr
-    role: str = Literal['user', 'admin']
+    role: str = 'user'
 
 class UserPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
