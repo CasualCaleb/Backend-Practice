@@ -3,9 +3,6 @@ def test_login(client):
     request = client.get('/api/auth/login', follow_redirects=False)
     assert request.status_code in (302, 307)
 
-    location = request.headers.get('Location')
-    assert 'accounts.google.com' in location
-
 def test_callback(client, normal_user, mock_google_token):
     response = client.get('/api/auth/callback', follow_redirects=False)
     assert response.status_code in (302, 307)

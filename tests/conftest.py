@@ -4,56 +4,21 @@ from models import User
 import pytest_asyncio
 from main import app
 import aiosqlite
+from db import init_db
 import pytest
-import os
-
-TEST_DB = "test.db"
 
 @pytest_asyncio.fixture
-async def test_db(monkeypatch):
+async def test_db(monkeypatch, tmp_path):
+    db_path = tmp_path / 'test.db'
     # Force database.py to use test.db
     monkeypatch.setattr(
         "db.database.DATABASE_PATH",
-        TEST_DB
+        db_path
     )
 
-    # Remove leftover DB from a crashed/previous test run
-    if os.path.exists(TEST_DB):
-        os.remove(TEST_DB)
+    await init_db()
 
-    # Create fresh test database
-    async with aiosqlite.connect(TEST_DB) as db:
-        await db.execute(
-            """
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                google_id TEXT UNIQUE NOT NULL,
-                username TEXT,
-                email TEXT UNIQUE NOT NULL,
-                role TEXT DEFAULT 'user'
-            )
-            """
-        )
-
-        await db.execute(
-            """
-            CREATE TABLE activity_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                action TEXT,
-                details TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-
-        await db.commit()
-
-    yield TEST_DB
-
-    # Cleanup after test
-    if os.path.exists(TEST_DB):
-        os.remove(TEST_DB)
+    yield db_path
 
 @pytest.fixture()
 def mock_google_token():

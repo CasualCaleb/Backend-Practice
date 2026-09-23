@@ -1,3 +1,4 @@
+from models import UserPublic
 
 def test_rejects_logged_out(client):
     request = client.get("/api/users/me")
@@ -8,7 +9,12 @@ def test_accepts_logged_in(client, normal_user, mock_google_token):
     assert response.status_code in (302, 307)
 
     response = client.get("/api/users/me")
-    assert response.json() == normal_user.model_dump()
+
+    assert response.status_code == 200
+
+    public_user = UserPublic.model_validate(normal_user)
+
+    assert response.json() == public_user.model_dump()
 
 def test_me_username(client, normal_user, mock_google_token):
     response = client.get("/api/auth/callback", follow_redirects=False)
