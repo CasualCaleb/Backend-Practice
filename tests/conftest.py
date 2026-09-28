@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from models import User
 import pytest_asyncio
 from main import app
-import aiosqlite
 from db import init_db
 import pytest
+import aiosqlite
 
 @pytest_asyncio.fixture
 async def test_db(monkeypatch, tmp_path):
@@ -21,12 +21,14 @@ async def test_db(monkeypatch, tmp_path):
     yield db_path
 
 @pytest.fixture()
-def mock_google_token():
+def mock_oauth_token():
     fake_token = {
         'userinfo': {
-            'sub': 'user123',
-            'name': 'default',
-            'email': 'example@example.com',
+            'name': 'user123',
+            'sub': 'google-user-123',
+            'email': 'user123@example.com',
+            'username': 'user123',
+            'id': '123456789101112131415'
         }
     }
 
@@ -41,31 +43,37 @@ async def normal_user(test_db):
     async with aiosqlite.connect(test_db) as db:
         cursor = await db.execute(
             """
-            INSERT INTO users (
-                google_id,
-                username,
-                email,
-                role
+            INSERT INTO users (username, role)
+            VALUES (?, ?)
+            """,
+            ("user123", "user")
+        )
+
+        user_id = cursor.lastrowid
+
+        await db.execute(
+            """
+            INSERT INTO oauth_accounts (
+                user_id,
+                provider,
+                provider_id,
+                provider_email
             )
             VALUES (?, ?, ?, ?)
             """,
             (
-                "user123",
-                "default",
-                "example@example.com",
-                "user"
+                user_id,
+                "google",
+                "google-user-123",
+                "user123@example.com"
             )
         )
 
         await db.commit()
 
-        user_id = cursor.lastrowid
-
     return User(
         id=user_id,
-        google_id="user123",
-        username="default",
-        email="example@example.com",
+        username="user123",
         role="user"
     )
 
@@ -74,31 +82,37 @@ async def admin_user(test_db):
     async with aiosqlite.connect(test_db) as db:
         cursor = await db.execute(
             """
-            INSERT INTO users (
-                google_id,
-                username,
-                email,
-                role
+            INSERT INTO users (username, role)
+            VALUES (?, ?)
+            """,
+            ("admin123", "admin")
+        )
+
+        user_id = cursor.lastrowid
+
+        await db.execute(
+            """
+            INSERT INTO oauth_accounts (
+                user_id,
+                provider,
+                provider_id,
+                provider_email
             )
             VALUES (?, ?, ?, ?)
             """,
             (
-                "user123",
-                "default",
-                "example@example.com",
-                "admin"
+                user_id,
+                "google",
+                "google-user-123",
+                "user123@example.com"
             )
         )
 
         await db.commit()
 
-        user_id = cursor.lastrowid
-
     return User(
         id=user_id,
-        google_id="user123",
-        username="default",
-        email="example@example.com",
+        username="admin123",
         role="admin"
     )
 

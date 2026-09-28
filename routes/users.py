@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from db import get_user_by_id, update_username, delete_user, log_activity
-from models import UsernameUpdate, User, UserPublic
+from models import UsernameUpdate, User
 
 async def require_user(request: Request) -> User:
     if "user_id" not in request.session:
@@ -24,7 +24,7 @@ router = APIRouter(
 )
 
 # Get current user info
-@router.get("/me", response_model=UserPublic, name="me")
+@router.get("/me", response_model=User, name="me")
 async def read_users_me(user: User = Depends(require_user)):
     return user
 
