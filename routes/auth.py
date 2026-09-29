@@ -88,17 +88,9 @@ async def logout(request: Request):
     request.session.clear()
     return {"message": "You have been logged out"}
 
-@router.get("/callback/{provider}", name="auth_callback")
-async def auth_callback(request: Request, provider: str):
+async def get_oauth_user_data(request: Request, provider: str) -> dict:
     oauth_client = oauth.create_client(provider)
     token = await oauth_client.authorize_access_token(request)
-    oauth_action = request.session.pop('oauth_action', None)
-
-    if oauth_action not in ('login', 'link'):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid OAuth action"
-        )
 
     if provider == 'google':
         user_data = token['userinfo']
@@ -128,6 +120,17 @@ async def auth_callback(request: Request, provider: str):
             status_code=404,
             detail="Oauth provider not supported"
         )
+
+    return oauth_data
+
+@router.get("/callback/{provider}", name="auth_callback")
+async def auth_callback(request: Request, provider: str):
+    oauth_action = request.session.pop('oauth_action', None)
+
+    oauth_data = await get_oauth_user_data(
+        request,
+        provider
+    )
 
     oauth_account = await get_oauth_account(
         oauth_data['provider'],

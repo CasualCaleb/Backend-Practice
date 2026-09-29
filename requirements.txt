@@ -3,7 +3,7 @@ fastapi
 itsdangerous
 dotenv
 authlib
-httpx
+httpx2
 aiosqlite
 pytest
 pytest-asyncio

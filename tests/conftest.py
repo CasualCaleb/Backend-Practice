@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
-from models import User
+from models import User, OauthAccount
 import pytest_asyncio
 from main import app
-from db import init_db
+from db import init_db, add_user, add_oauth_account
 import pytest
 import aiosqlite
 
@@ -20,101 +20,60 @@ async def test_db(monkeypatch, tmp_path):
 
     yield db_path
 
-@pytest.fixture()
-def mock_oauth_token():
-    fake_token = {
-        'userinfo': {
-            'name': 'user123',
-            'sub': 'google-user-123',
-            'email': 'user123@example.com',
-            'username': 'user123',
-            'id': '123456789101112131415'
-        }
-    }
-
-    with patch(
-        "routes.auth.oauth.google.authorize_access_token",
-        new=AsyncMock(return_value=fake_token),
-    ) as mock:
-        yield mock
-
 @pytest_asyncio.fixture
 async def normal_user(test_db):
-    async with aiosqlite.connect(test_db) as db:
-        cursor = await db.execute(
-            """
-            INSERT INTO users (username, role)
-            VALUES (?, ?)
-            """,
-            ("user123", "user")
-        )
+    user = await add_user(User(
+        username='user123',
+        role='user'
+    ))
+    await add_oauth_account(OauthAccount(
+        user_id=user.id,
+        provider='google',
+        provider_id='123456789101112131415',
+        provider_email='example@example.com'
+    ))
 
-        user_id = cursor.lastrowid
-
-        await db.execute(
-            """
-            INSERT INTO oauth_accounts (
-                user_id,
-                provider,
-                provider_id,
-                provider_email
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                "google",
-                "google-user-123",
-                "user123@example.com"
-            )
-        )
-
-        await db.commit()
-
-    return User(
-        id=user_id,
-        username="user123",
-        role="user"
-    )
+    return user
 
 @pytest_asyncio.fixture
 async def admin_user(test_db):
-    async with aiosqlite.connect(test_db) as db:
-        cursor = await db.execute(
-            """
-            INSERT INTO users (username, role)
-            VALUES (?, ?)
-            """,
-            ("admin123", "admin")
-        )
+    user = await add_user(User(
+        username='user123',
+        role='admin'
+    ))
+    await add_oauth_account(OauthAccount(
+        user_id=user.id,
+        provider='google',
+        provider_id='123456789101112131415',
+        provider_email='example@example.com'
+    ))
 
-        user_id = cursor.lastrowid
+    return user
 
-        await db.execute(
-            """
-            INSERT INTO oauth_accounts (
-                user_id,
-                provider,
-                provider_id,
-                provider_email
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                "google",
-                "google-user-123",
-                "user123@example.com"
-            )
-        )
+@pytest.fixture()
+def mock_oauth_identity():
+    with patch(
+        "routes.auth.get_oauth_user_data",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
 
-        await db.commit()
-
-    return User(
-        id=user_id,
-        username="admin123",
-        role="admin"
-    )
+@pytest.fixture()
+def oauth_identities():
+    return {
+        'google': {
+            'provider': 'google',
+            'username': 'user123',
+            'provider_id': '123456789101112131415',
+            'provider_email': 'example@example.com',
+        },
+        'discord': {
+            'provider': 'discord',
+            'username': 'user123',
+            'provider_id': '123456789101112131415',
+            'provider_email': 'example@example.com',
+        }
+    }
 
 @pytest.fixture
 def client():
