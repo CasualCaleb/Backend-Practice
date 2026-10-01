@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
-from db import get_user_by_id, update_username, delete_user, log_activity
 from models import UsernameUpdate, User
+from services import user_services
 
 async def require_user(request: Request) -> User:
     if "user_id" not in request.session:
@@ -8,7 +8,9 @@ async def require_user(request: Request) -> User:
             status_code=401,
             detail="You have not logged in"
         )
-    user = await get_user_by_id(request.session["user_id"])
+
+    user_id = request.session["user_id"]
+    user = await user_services.get_user(user_id)
 
     if user is None:
         raise HTTPException(
@@ -30,24 +32,17 @@ async def read_users_me(user: User = Depends(require_user)):
 
 # Change the current user's username
 @router.patch("/me/username", name="username")
-async def change_username(data: UsernameUpdate, user: User = Depends(require_user)):
-    is_updated = await update_username(
+async def update_username(data: UsernameUpdate, user: User = Depends(require_user)):
+    is_updated = await user_services.change_username(
         user.id,
         data.username
     )
-    if is_updated:
-        await log_activity(
-            user.id,
-            "username",
-            f"Changed username to {data.username}"
-        )
-
     return is_updated
 
 # Delete the current user
 @router.delete("/me", name="delete_me")
 async def delete_me(request: Request, user: User = Depends(require_user)):
-    is_deleted  = await delete_user(user.id)
+    is_deleted = await user_services.delete_user(user.id)
 
     if is_deleted :
         request.session.clear()

@@ -1,7 +1,6 @@
-from models import User, OauthAccount
+from models import User, OauthAccount, RegisterUser
 import aiosqlite
 from pathlib import Path
-import asyncio
 
 DATABASE_PATH = Path(__file__).resolve().parent.parent / "db" / "database.db"
 
@@ -98,7 +97,7 @@ async def add_user(user: User) -> User:
             role=user.role
         )
 
-async def add_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
+async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
     async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
             INSERT INTO oauth_accounts(user_id, provider, provider_id, provider_email)
@@ -142,6 +141,26 @@ async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | N
             provider_email=row[4],
         )
 
+async def get_oauth_accounts_by_user_id(user_id: int) -> list[OauthAccount]:
+    async with aiosqlite.connect(DATABASE_PATH) as conn:
+        cursor = await conn.execute("""
+            SELECT *
+            FROM oauth_accounts
+            WHERE user_id = ?
+        """, (user_id,))
+
+        oauth_accounts = [
+            OauthAccount(
+                id=row[0],
+                user_id=row[1],
+                provider=row[2],
+                provider_id=row[3],
+                provider_email=row[4]
+            ) for row in await cursor.fetchall()
+        ]
+
+        return oauth_accounts
+
 async def update_username(user_id: int, username: str) -> bool:
     async with aiosqlite.connect(DATABASE_PATH) as conn:
         cursor = await conn.execute("""
@@ -164,11 +183,13 @@ async def delete_user(user_id: int) -> bool:
 
         return cursor.rowcount > 0
 
-async def log_activity(user_id: int, action: str, details: str) -> None:
+async def log_activity(user_id: int, action: str, details: str) -> bool:
     async with aiosqlite.connect(DATABASE_PATH) as conn:
-        await conn.execute("""
+        cursor = await conn.execute("""
         INSERT INTO activity_log(user_id, action, details)
         VALUES (?, ?, ?)
         """, (user_id, action, details))
 
         await conn.commit()
+
+        return cursor.rowcount > 0

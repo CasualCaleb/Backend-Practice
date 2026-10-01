@@ -2,8 +2,8 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET
-from models import User, OauthAccount
-from db import get_user_by_id, add_user, add_oauth_account, log_activity, get_oauth_account
+from models import User, OauthAccount, RegisterUser
+from services import user_services, auth_services
 
 router = APIRouter(prefix="/api/auth")
 oauth = OAuth()
@@ -43,14 +43,14 @@ async def login(request: Request, provider: str):
 
     # Validate existing session user
     if user_id is not None:
-        user = await get_user_by_id(user_id)
+        user = await user_services.get_user(user_id)
         if user is None:
             request.session.clear()
             user_id = None
 
     # Determine OAuth action based on authentication state
     if user_id is None:
-        request.session['oauth_action'] = 'login'
+        request.session['oauth_action'] = 'register'
     else:
         request.session['oauth_action'] = 'link'
 
@@ -63,13 +63,15 @@ async def login(request: Request, provider: str):
 
 @router.post("/logout")
 async def logout(request: Request):
-    if request.session.get("user_id") is None:
+    user_id = request.session.get("user_id")
+
+    if user_id is None:
         raise HTTPException(
             status_code=401,
             detail="You have not logged in"
         )
 
-    user = await get_user_by_id(request.session["user_id"])
+    user = await user_services.get_user(user_id)
 
     # Handle if existing_user is None
     if user is None:
@@ -79,13 +81,10 @@ async def logout(request: Request):
             detail="User not found"
         )
 
-    await log_activity(
-        user.id,
-        "logout",
-        f"{user.username} logged out"
-    )
+    await auth_services.record_logout(user)
 
     request.session.clear()
+
     return {"message": "You have been logged out"}
 
 async def get_oauth_user_data(request: Request, provider: str) -> dict:
@@ -95,7 +94,7 @@ async def get_oauth_user_data(request: Request, provider: str) -> dict:
     if provider == 'google':
         user_data = token['userinfo']
 
-        oauth_data = {
+        return {
             'provider': 'google',
             'username': user_data['name'],
             'provider_id': user_data['sub'],
@@ -109,30 +108,34 @@ async def get_oauth_user_data(request: Request, provider: str) -> dict:
 
         user_data = response.json()
 
-        oauth_data = {
+        return {
             'provider': 'discord',
             'username': user_data['username'],
             'provider_id': user_data['id'],
             'provider_email': user_data['email'],
         }
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="Oauth provider not supported"
-        )
 
-    return oauth_data
+    raise HTTPException(
+        status_code=404,
+        detail="Oauth provider not supported"
+    )
 
 @router.get("/callback/{provider}", name="auth_callback")
 async def auth_callback(request: Request, provider: str):
     oauth_action = request.session.pop('oauth_action', None)
+
+    if oauth_action not in ('link', 'register'):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OAuth action"
+        )
 
     oauth_data = await get_oauth_user_data(
         request,
         provider
     )
 
-    oauth_account = await get_oauth_account(
+    oauth_account = await auth_services.get_oauth_account(
         oauth_data['provider'],
         oauth_data['provider_id']
     )
@@ -154,7 +157,7 @@ async def auth_callback(request: Request, provider: str):
                     detail='Login session expired'
                 )
 
-            user = await get_user_by_id(user_id)
+            user = await user_services.get_user(user_id)
 
             if user is None:
                 request.session.clear()
@@ -163,23 +166,24 @@ async def auth_callback(request: Request, provider: str):
                     detail="User no longer exists"
                 )
 
-            oauth_account = await add_oauth_account(OauthAccount(
+            oauth_account = await auth_services.link_oauth_account(OauthAccount(
                 user_id=user.id,
                 provider=oauth_data['provider'],
                 provider_id=oauth_data['provider_id'],
                 provider_email=oauth_data['provider_email'],
             ))
 
-        elif oauth_action == 'login':
-            user = await add_user(User(username=oauth_data['username']))
-            oauth_account = await add_oauth_account(OauthAccount(
-                user_id=user.id,
-                provider=oauth_data['provider'],
-                provider_id=oauth_data['provider_id'],
-                provider_email=oauth_data['provider_email'],
-            ))
+        elif oauth_action == 'register':
+            registered_user = await auth_services.register_user(
+                RegisterUser(
+                    username=oauth_data['username'],
+                    provider=oauth_data['provider'],
+                    provider_id=oauth_data['provider_id'],
+                    provider_email=oauth_data['provider_email'],
+                )
+            )
 
-    user = await get_user_by_id(oauth_account.user_id)
+    user = await user_services.get_user(oauth_account.user_id)
 
     if user is None:
         raise HTTPException(
@@ -187,12 +191,9 @@ async def auth_callback(request: Request, provider: str):
             detail="User not found"
         )
 
-    # Save user to session and log
+    # Save user id to session
     request.session['user_id'] = user.id
-    await log_activity(
-        user.id,
-        'login',
-        f"{user.username} logged in"
-    )
+
+    await auth_services.record_login(user)
 
     return RedirectResponse(url=request.url_for("me"))

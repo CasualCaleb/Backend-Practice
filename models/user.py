@@ -14,3 +14,11 @@ class OauthAccount(BaseModel):
     provider: str
     provider_id: str
     provider_email: str
+
+class RegisterUser(BaseModel):
+    id: int | None = None
+    username: str
+    role: str = 'user'
+    provider: str
+    provider_id: str
+    provider_email: str
