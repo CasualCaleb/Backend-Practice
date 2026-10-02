@@ -1,12 +1,8 @@
-from models import User, OauthAccount, RegisterUser
-import aiosqlite
-from pathlib import Path
+from db.connection import get_connection
+from models import User, OauthAccount
 
-DATABASE_PATH = Path(__file__).resolve().parent.parent / "db" / "database.db"
-
-# Create tables if missing
 async def init_db() -> None:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +39,7 @@ async def init_db() -> None:
         await conn.commit()
 
 async def get_user_by_id(user_id: int) -> User | None:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             SELECT id, username, role
             FROM users
@@ -61,7 +57,7 @@ async def get_user_by_id(user_id: int) -> User | None:
         )
 
 async def get_users() -> list[User]:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             SELECT *
             FROM users
@@ -79,7 +75,7 @@ async def get_users() -> list[User]:
     return users
 
 async def add_user(user: User) -> User:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             INSERT INTO users (username, role)
             VALUES (?, ?)
@@ -98,7 +94,7 @@ async def add_user(user: User) -> User:
         )
 
 async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             INSERT INTO oauth_accounts(user_id, provider, provider_id, provider_email)
             VALUES (?, ?, ?, ?)
@@ -121,7 +117,7 @@ async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
         )
 
 async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | None:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             SELECT *
             FROM oauth_accounts
@@ -142,7 +138,7 @@ async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | N
         )
 
 async def get_oauth_accounts_by_user_id(user_id: int) -> list[OauthAccount]:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             SELECT *
             FROM oauth_accounts
@@ -162,7 +158,7 @@ async def get_oauth_accounts_by_user_id(user_id: int) -> list[OauthAccount]:
         return oauth_accounts
 
 async def update_username(user_id: int, username: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             UPDATE users
             SET username = ?
@@ -174,7 +170,7 @@ async def update_username(user_id: int, username: str) -> bool:
         return cursor.rowcount > 0
 
 async def delete_user(user_id: int) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
             DELETE FROM users WHERE id = ?
         """, (user_id,))
@@ -184,7 +180,7 @@ async def delete_user(user_id: int) -> bool:
         return cursor.rowcount > 0
 
 async def log_activity(user_id: int, action: str, details: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as conn:
+    async with get_connection() as conn:
         cursor = await conn.execute("""
         INSERT INTO activity_log(user_id, action, details)
         VALUES (?, ?, ?)

@@ -20,7 +20,7 @@ async def test_database(monkeypatch, tmp_path):
     db_path = tmp_path / 'test.db'
     # Force database.py to use test.db
     monkeypatch.setattr(
-        "db.database.DATABASE_PATH",
+        "db.connection.DATABASE_PATH",
         db_path
     )
 

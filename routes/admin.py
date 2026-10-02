@@ -4,28 +4,29 @@ from models.user import User
 
 # CHECK IF USER IS ADMIN
 async def require_admin(request: Request):
-    if 'user_id' not in request.session:
+    user_id = request.session.get('user_id')
+
+    if not isinstance(user_id, int):
         raise HTTPException(
             status_code=401,
             detail="You must be logged in"
         )
 
-    user_id = request.session.get('user_id')
-    user = await user_services.get_user(user_id)
+    admin_user = await user_services.get_user(user_id)
 
-    if user is None:
+    if admin_user is None:
         raise HTTPException(
             status_code=404,
             detail="User not found"
         )
 
-    if user.role != "admin":
+    if admin_user.role != "admin":
         raise HTTPException(
             status_code=403,
             detail="Admin access required"
         )
 
-    return user
+    return admin_user
 
 router = APIRouter(
     prefix="/api/admin",
@@ -52,7 +53,11 @@ async def admin_get_user_by_id(user_id: int):
 
 # Remove user by id
 @router.delete("/users/{user_id}")
-async def admin_remove_user(user_id: int, request: Request):
+async def admin_remove_user(
+        request: Request,
+        user_id: int,
+        admin_user: User = Depends(require_admin)
+):
     user = await user_services.get_user(user_id)
     if user is None:
         raise HTTPException(
@@ -60,10 +65,9 @@ async def admin_remove_user(user_id: int, request: Request):
             detail="User not found"
         )
 
-    admin_id = request.session.get('user_id')
-    await admin_services.delete_user(admin_id, user_id)
+    await admin_services.delete_user(admin_user.id, user_id)
 
-    # Handle if admin deleted themself
+    # Handle if admin deleted themselves
     if request.session["user_id"] == user_id:
         request.session.clear()
 

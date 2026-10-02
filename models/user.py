@@ -16,7 +16,6 @@ class OauthAccount(BaseModel):
     provider_email: str
 
 class RegisterUser(BaseModel):
-    id: int | None = None
     username: str
     role: str = 'user'
     provider: str

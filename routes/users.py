@@ -27,12 +27,17 @@ router = APIRouter(
 
 # Get current user info
 @router.get("/me", response_model=User, name="me")
-async def read_users_me(user: User = Depends(require_user)):
+async def read_users_me(
+        user: User = Depends(require_user)
+):
     return user
 
 # Change the current user's username
 @router.patch("/me/username", name="username")
-async def update_username(data: UsernameUpdate, user: User = Depends(require_user)):
+async def update_username(
+        data: UsernameUpdate,
+        user: User = Depends(require_user)
+):
     is_updated = await user_services.change_username(
         user.id,
         data.username
@@ -41,7 +46,10 @@ async def update_username(data: UsernameUpdate, user: User = Depends(require_use
 
 # Delete the current user
 @router.delete("/me", name="delete_me")
-async def delete_me(request: Request, user: User = Depends(require_user)):
+async def delete_me(
+        request: Request,
+        user: User = Depends(require_user)
+):
     is_deleted = await user_services.delete_user(user.id)
 
     if is_deleted :

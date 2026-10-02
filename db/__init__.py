@@ -8,5 +8,5 @@ from db.database import (
     init_db,
     update_username,
     log_activity,
-    get_oauth_account
+    get_oauth_account,
 )
