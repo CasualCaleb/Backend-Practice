@@ -1,4 +1,5 @@
 import pytest
+from models import user, OauthAccount
 from services import auth_services
 from unittest.mock import AsyncMock, patch
 
@@ -67,3 +68,21 @@ async def test_link_oauth_account(client, standard_user, login_user):
 
         oauth_accounts = await auth_services.get_oauth_accounts(user)
         assert oauth_accounts[0].user_id and oauth_accounts[1].user_id == user.id
+
+@pytest.mark.asyncio
+async def test_register_new_user(client, test_database):
+    with patch(
+            'routes.auth.get_oauth_user_data',
+            return_value={
+                'username': 'billybob',
+                'provider': 'google',
+                'provider_id': 'googler123',
+                'provider_email': 'billy@google.com'
+            }
+    ):
+        client.get("/pytest/oauth_action/register")
+        response = client.get('/api/auth/callback/google', follow_redirects=False)
+        assert response.status_code in (302, 307)
+
+        oauth_account = await auth_services.get_oauth_account("google", "googler123")
+        assert isinstance(oauth_account, OauthAccount)

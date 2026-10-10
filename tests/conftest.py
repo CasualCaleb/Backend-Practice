@@ -65,6 +65,11 @@ async def test_login(request: Request, user_id: int):
     request.session['user_id'] = user_id
     return {'Ok': True}
 
+@app.get("/pytest/oauth_action/{action}")
+async def test_login(request: Request, action: str):
+    request.session['oauth_action'] = action
+    return {'Ok': True}
+
 @pytest.fixture
 def client():
     with TestClient(app) as client:

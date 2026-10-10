@@ -175,7 +175,7 @@ async def auth_callback(request: Request, provider: str):
             ))
 
         elif oauth_action == 'register':
-            await auth_services.register_user(
+            user, oauth_account = await auth_services.register_user(
                 CreateUser(
                     username=oauth_data['username']
                 ),
