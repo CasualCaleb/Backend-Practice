@@ -1,5 +1,5 @@
 from db.connection import get_connection
-from models import User, OauthAccount
+from models import User, CreateUser, OauthAccount, CreateOauthAccount
 
 async def init_db() -> None:
     async with get_connection() as conn:
@@ -74,35 +74,56 @@ async def get_users() -> list[User]:
         ]
     return users
 
-async def add_user(user: User) -> User:
+async def create_user_with_oauth(create_user: CreateUser, create_oauth_account: CreateOauthAccount) -> tuple[User, OauthAccount]:
     async with get_connection() as conn:
         cursor = await conn.execute("""
             INSERT INTO users (username, role)
             VALUES (?, ?)
         """, (
-            user.username,
-            user.role
+            create_user.username,
+            create_user.role
             )
+        )
+
+        user = User(
+            id=cursor.lastrowid,
+            username=create_user.username,
+            role=create_user.role
+        )
+
+        cursor = await conn.execute("""
+            INSERT INTO oauth_accounts (user_id, provider, provider_id, provider_email)
+            VALUES (?, ?, ?, ?)
+        """, (
+            user.id,
+            create_oauth_account.provider,
+            create_oauth_account.provider_id,
+            create_oauth_account.provider_email
+            )
+        )
+
+        oauth_account = OauthAccount(
+            id=cursor.lastrowid,
+            user_id=user.id,
+            provider=create_oauth_account.provider,
+            provider_id=create_oauth_account.provider_id,
+            provider_email=create_oauth_account.provider_email
         )
 
         await conn.commit()
 
-        return User(
-            id=cursor.lastrowid,
-            username=user.username,
-            role=user.role
-        )
+        return user, oauth_account
 
-async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
+async def link_oauth_account(user: User, create_oauth_account: CreateOauthAccount) -> OauthAccount:
     async with get_connection() as conn:
         cursor = await conn.execute("""
             INSERT INTO oauth_accounts(user_id, provider, provider_id, provider_email)
             VALUES (?, ?, ?, ?)
         """, (
-            oauth_account.user_id,
-            oauth_account.provider,
-            oauth_account.provider_id,
-            oauth_account.provider_email
+            user.id,
+            create_oauth_account.provider,
+            create_oauth_account.provider_id,
+            create_oauth_account.provider_email
             )
         )
 
@@ -110,10 +131,10 @@ async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
 
         return OauthAccount(
             id=cursor.lastrowid,
-            user_id=oauth_account.user_id,
-            provider=oauth_account.provider,
-            provider_id=oauth_account.provider_id,
-            provider_email=oauth_account.provider_email
+            user_id=user.id,
+            provider=create_oauth_account.provider,
+            provider_id=create_oauth_account.provider_id,
+            provider_email=create_oauth_account.provider_email
         )
 
 async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | None:

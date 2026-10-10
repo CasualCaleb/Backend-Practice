@@ -1,4 +1,4 @@
-from models import User, OauthAccount, RegisterUser
+from models import User, OauthAccount, CreateUser, CreateOauthAccount
 from db import database
 
 async def record_logout(user: User) -> bool:
@@ -15,17 +15,6 @@ async def record_login(user: User) -> bool:
         details="User logged in"
     )
 
-async def link_oauth_account(oauth_account: OauthAccount) -> OauthAccount:
-    oauth_account = await database.link_oauth_account(oauth_account)
-
-    await database.log_activity(
-        user_id=oauth_account.user_id,
-        action="Oauth Link",
-        details=f"User linked with {oauth_account.provider} Oauth"
-    )
-
-    return oauth_account
-
 async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | None:
     return await database.get_oauth_account(
         provider,
@@ -35,27 +24,24 @@ async def get_oauth_account(provider: str, provider_id: str) -> OauthAccount | N
 async def get_oauth_accounts(user: User) -> list[OauthAccount]:
     return await database.get_oauth_accounts_by_user_id(user.id)
 
-async def register_user(registration: RegisterUser) -> tuple[User, OauthAccount]:
-    user = await database.add_user(
-        User(
-            username=registration.username,
-            role=registration.role,
-        )
+async def link_oauth_account(user: User, create_oauth_account: CreateOauthAccount) -> OauthAccount:
+    oauth_account = await database.link_oauth_account(user, create_oauth_account)
+
+    await database.log_activity(
+        user_id=oauth_account.user_id,
+        action="Oauth Link",
+        details=f"User linked with {oauth_account.provider} Oauth"
     )
+
+    return oauth_account
+
+async def register_user(create_user: CreateUser, create_oauth_account: CreateOauthAccount) -> tuple[User, OauthAccount]:
+    user, oauth_account = await database.create_user_with_oauth(create_user, create_oauth_account)
 
     await database.log_activity(
         user_id=user.id,
         action="register",
         details="User registered a new account"
-    )
-
-    oauth_account = await link_oauth_account(
-        OauthAccount(
-            user_id=user.id,
-            provider=registration.provider,
-            provider_id=registration.provider_id,
-            provider_email=registration.provider_email,
-        )
     )
 
     return user, oauth_account

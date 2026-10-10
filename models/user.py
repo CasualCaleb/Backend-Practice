@@ -1,23 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 class UsernameUpdate(BaseModel):
-    username: str = Field(min_length=5, max_length=50)
+    username: str
 
 class User(BaseModel):
-    id: int | None = None
+    id: int
+    username: str
+    role: str
+
+class CreateUser(BaseModel):
     username: str
     role: str = 'user'
-
-class OauthAccount(BaseModel):
-    id: int | None = None
-    user_id: int
-    provider: str
-    provider_id: str
-    provider_email: str
-
-class RegisterUser(BaseModel):
-    username: str
-    role: str = 'user'
-    provider: str
-    provider_id: str
-    provider_email: str

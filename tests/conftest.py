@@ -1,6 +1,6 @@
 from fastapi import Request
 from fastapi.testclient import TestClient
-from models import User, RegisterUser, OauthAccount
+from models import User, OauthAccount, CreateUser, CreateOauthAccount
 import pytest_asyncio
 from main import app
 from db import init_db
@@ -31,9 +31,11 @@ async def test_database(monkeypatch, tmp_path):
 @pytest_asyncio.fixture
 async def standard_user(client, test_database):
     registration = await auth_services.register_user(
-        RegisterUser(
+        CreateUser(
             username="user123",
-            role="user",
+            role="user"
+        ),
+        CreateOauthAccount(
             provider="google",
             provider_id="google_user123",
             provider_email="user@gmail.com"
@@ -45,9 +47,11 @@ async def standard_user(client, test_database):
 @pytest_asyncio.fixture
 async def admin_user(client, test_database):
     registration = await auth_services.register_user(
-        RegisterUser(
+        CreateUser(
             username="admin123",
             role='admin',
+        ),
+        CreateOauthAccount(
             provider='google',
             provider_id='google_admin123',
             provider_email='admin@gmail.com'

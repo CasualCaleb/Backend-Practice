@@ -2,7 +2,7 @@
 from db.database import (
     get_users,
     get_user_by_id,
-    add_user,
+    create_user_with_oauth,
     link_oauth_account,
     delete_user,
     init_db,

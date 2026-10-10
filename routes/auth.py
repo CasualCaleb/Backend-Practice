@@ -2,7 +2,7 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET
-from models import User, OauthAccount, RegisterUser
+from models import User, OauthAccount, CreateUser, CreateOauthAccount
 from services import user_services, auth_services
 
 router = APIRouter(prefix="/api/auth")
@@ -42,7 +42,7 @@ async def login(request: Request, provider: str):
     user_id = request.session.get("user_id")
 
     # Validate existing session user
-    if user_id is not None:
+    if isinstance(user_id, int):
         user = await user_services.get_user(user_id)
         if user is None:
             request.session.clear()
@@ -65,7 +65,7 @@ async def login(request: Request, provider: str):
 async def logout(request: Request):
     user_id = request.session.get("user_id")
 
-    if user_id is None:
+    if not isinstance(user_id, int):
         raise HTTPException(
             status_code=401,
             detail="You have not logged in"
@@ -151,7 +151,7 @@ async def auth_callback(request: Request, provider: str):
     if oauth_account is None:
         if oauth_action == 'link':
             user_id = request.session.get('user_id')
-            if user_id is None:
+            if not isinstance(user_id, int):
                 raise HTTPException(
                     status_code=401,
                     detail='Login session expired'
@@ -159,15 +159,16 @@ async def auth_callback(request: Request, provider: str):
 
             user = await user_services.get_user(user_id)
 
-            if user is None:
+            if not isinstance(user, User):
                 request.session.clear()
                 raise HTTPException(
                     status_code=401,
                     detail="User no longer exists"
                 )
 
-            oauth_account = await auth_services.link_oauth_account(OauthAccount(
-                user_id=user.id,
+            oauth_account = await auth_services.link_oauth_account(
+                user,
+                CreateOauthAccount(
                 provider=oauth_data['provider'],
                 provider_id=oauth_data['provider_id'],
                 provider_email=oauth_data['provider_email'],
@@ -175,11 +176,13 @@ async def auth_callback(request: Request, provider: str):
 
         elif oauth_action == 'register':
             await auth_services.register_user(
-                RegisterUser(
-                    username=oauth_data['username'],
+                CreateUser(
+                    username=oauth_data['username']
+                ),
+                CreateOauthAccount(
                     provider=oauth_data['provider'],
                     provider_id=oauth_data['provider_id'],
-                    provider_email=oauth_data['provider_email'],
+                    provider_email=oauth_data['provider_email']
                 )
             )
 
