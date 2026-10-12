@@ -74,6 +74,25 @@ async def get_users() -> list[User]:
         ]
     return users
 
+async def get_oauth_accounts() -> list[OauthAccount]:
+    async with get_connection() as conn:
+        cursor = await conn.execute("""
+            SELECT *
+            FROM oauth_accounts
+        """)
+
+        oauth_accounts = [
+            OauthAccount(
+                id=row[0],
+                user_id=row[1],
+                provider=row[2],
+                provider_id=row[3],
+                provider_email=row[4]
+            ) for row in await cursor.fetchall()
+        ]
+
+        return oauth_accounts
+
 async def create_user_with_oauth(create_user: CreateUser, create_oauth_account: CreateOauthAccount) -> tuple[User, OauthAccount]:
     async with get_connection() as conn:
         cursor = await conn.execute("""
