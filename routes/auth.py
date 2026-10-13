@@ -39,19 +39,6 @@ async def login(request: Request, provider: str):
             detail="Oauth provider not supported"
         )
 
-    user_id = request.session.get("user_id")
-
-    request.session["oauth_action"] = "register"
-
-    if isinstance(user_id, int):
-        user = await user_services.get_user(user_id)
-
-        if isinstance(user, User):
-            request.session["oauth_action"] = "link"
-            request.session["oauth_link_user_id"] = user.id
-        else:
-            request.session.pop("user_id", None)
-
     redirect_uri = request.url_for(
         "auth_callback",
         provider=provider
@@ -126,74 +113,49 @@ async def get_oauth_user_data(request: Request, provider: str) -> dict:
     )
 
 async def validate_oauth_account(request: Request, oauth_data) -> User:
-    oauth_action = request.session.pop("oauth_action", None)
-
-    if oauth_action not in ("register", "link"):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid OAuth action"
-        )
-
-    if oauth_action == 'link':
-        user_id = request.session.get('user_id')
-        original_id = request.session.pop("oauth_link_user_id", None)
-
-        if not isinstance(user_id, int) or user_id != original_id:
-            raise HTTPException(
-                status_code=401,
-                detail="OAuth linking session changed"
-            )
-
-        user = await user_services.get_user(user_id)
-
-        if not isinstance(user, User):
-            request.session.pop("user_id", None)
-            raise HTTPException(
-                status_code=401,
-                detail="User no longer exists"
-            )
-
+    current_user = await get_current_user(request)
     oauth_account = await auth_services.get_oauth_account(
         oauth_data['provider'],
         oauth_data['provider_id']
     )
 
-    # Logic for if we have DO have the oauth in the db
-    if oauth_account is not None:
-        if oauth_action == "link":
-            if oauth_account.user_id != user.id:
+    if isinstance(current_user, User):
+        if isinstance(oauth_account, OauthAccount):
+            # Verify the OAuth account belongs to the current user
+            if oauth_account.user_id != current_user.id:
                 raise HTTPException(
                     status_code=409,
                     detail="OAuth account already linked to another user"
                 )
 
-            return user
+            return current_user
 
-        existing_user = await user_services.get_user(oauth_account.user_id)
+        else:
+            # Link OAuth to the user
+            await auth_services.link_oauth_account(
+                current_user,
+                CreateOauthAccount(
+                    provider=oauth_data['provider'],
+                    provider_id=oauth_data['provider_id'],
+                    provider_email=oauth_data['provider_email'],
+                ))
 
-        if not isinstance(existing_user, User):
-            request.session.pop('user_id', None)
+            return current_user
+
+    elif isinstance(oauth_account, OauthAccount):
+        # Logs in user
+        user = await user_services.get_user(oauth_account.user_id)
+
+        if not isinstance(user, User):
             raise HTTPException(
-                status_code=401,
-                detail="User no longer exists"
+                status_code=404,
+                detail="User not found"
             )
-
-        return existing_user
-
-    # Logic for if we have DON'T have the oauth in the db
-    if oauth_action == "link":
-        await auth_services.link_oauth_account(
-            user,
-            CreateOauthAccount(
-                provider=oauth_data['provider'],
-                provider_id=oauth_data['provider_id'],
-                provider_email=oauth_data['provider_email'],
-            ))
 
         return user
 
-    # Logic for if oauth_action == "register"
-    user, _ = await auth_services.register_user(
+    # Logic for registering a new user
+    new_user, _ = await auth_services.register_user(
         CreateUser(
             username=oauth_data['username']
         ),
@@ -204,7 +166,20 @@ async def validate_oauth_account(request: Request, oauth_data) -> User:
         )
     )
 
-    return user
+    return new_user
+
+async def get_current_user(request: Request) -> User | None:
+    user_id = request.session.get("user_id")
+
+    if isinstance(user_id, int):
+        user = await user_services.get_user(user_id)
+
+        if isinstance(user, User):
+            return user
+
+        request.session.pop("user_id", None)
+
+    return None
 
 @router.get("/callback/{provider}", name="auth_callback")
 async def auth_callback(request: Request, provider: str):

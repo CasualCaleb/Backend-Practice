@@ -40,7 +40,6 @@ async def test_callback_login(client, standard_user, test_database):
             'provider_email': oauth_account.provider_email
         }
     ):
-        client.get('/api/auth/login/google', follow_redirects=False)
         response = client.get('/api/auth/callback/google', follow_redirects=False)
         assert response.status_code in (302, 307)
         assert len(await database.get_oauth_accounts()) == 1
@@ -56,7 +55,6 @@ async def test_callback_register_new_user(client, test_database):
                 'provider_email': 'billy@google.com'
             }
     ):
-        client.get('/api/auth/login/google', follow_redirects=False)
         response = client.get('/api/auth/callback/google', follow_redirects=False)
         assert response.status_code in (302, 307)
 
@@ -78,7 +76,6 @@ async def test_callback_link_oauth_account(client, standard_user, login_user, te
                 'provider_email': 'user@discord.com'
             }
     ):
-        client.get('/api/auth/login/discord', follow_redirects=False)
         response = client.get('/api/auth/callback/discord', follow_redirects=False)
         assert response.status_code in (302, 307)
 
