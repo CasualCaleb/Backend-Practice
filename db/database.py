@@ -1,42 +1,16 @@
+from fastapi import APIRouter
+
 from db.connection import get_connection
 from models import User, CreateUser, OauthAccount, CreateOauthAccount
+from pathlib import Path
+
+SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 async def init_db() -> None:
-    async with get_connection() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS users(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT,
-                role TEXT NOT NULL DEFAULT 'user'
-            )
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS oauth_accounts(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                provider TEXT NOT NULL,
-                provider_id TEXT NOT NULL,
-                provider_email TEXT,
-                
-                FOREIGN KEY (user_id)
-                    REFERENCES users(id)
-                    ON DELETE CASCADE,
-                    
-                UNIQUE(provider, provider_id),
-                UNIQUE(user_id, provider)
-            )
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS activity_log(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                action TEXT NOT NULL,
-                details TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+    schema = SCHEMA_PATH.read_text(encoding="utf-8")
 
-        await conn.commit()
+    async with get_connection() as conn:
+        await conn.executescript(schema)
 
 async def get_user_by_id(user_id: int) -> User | None:
     async with get_connection() as conn:
