@@ -209,11 +209,11 @@ async def validate_oauth_account(request: Request, oauth_data) -> User:
 @router.get("/callback/{provider}", name="auth_callback")
 async def auth_callback(request: Request, provider: str):
     oauth_data = await get_oauth_user_data(request, provider)
-    user = await validate_oauth_account(request, oauth_data)
+    validated_user = await validate_oauth_account(request, oauth_data)
 
     # Save user id to session
-    request.session['user_id'] = user.id
+    request.session['user_id'] = validated_user.id
 
-    await auth_services.record_login(user)
+    await auth_services.record_login(validated_user)
 
     return RedirectResponse(url=request.url_for("me"))
